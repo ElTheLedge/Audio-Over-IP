@@ -15,9 +15,6 @@ import (
 	"github.com/moutend/go-wca/pkg/wca"
 )
 
-var version = "latest"
-var revision = "latest"
-
 func main() {
 	var err error
 	err = run()
@@ -140,9 +137,6 @@ func loopbackCaptureSharedTimerDriven(ctx context.Context, duration time.Duratio
 	var devicePosition uint64
 	var qcpPosition uint64
 
-	//
-	//SERVER IMPLEMENTATION START
-	//
 	var addr string = ":4040"
 	laddr, err := net.ResolveTCPAddr("tcp", addr)
 	checkError(err)
@@ -153,9 +147,7 @@ func loopbackCaptureSharedTimerDriven(ctx context.Context, duration time.Duratio
 	conn, err := l.AcceptTCP()
 	checkError(err)
 	println("connected to: " + conn.RemoteAddr().String())
-	//
-	//SERVER IMPLEMENTATION END
-	//
+
 	w := bufio.NewWriter(conn)
 	for {
 		acc.GetBuffer(&data, &availableFrameSize, &flags, &devicePosition, &qcpPosition)
