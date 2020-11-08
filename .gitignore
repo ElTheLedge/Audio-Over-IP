@@ -1,3 +1,5 @@
 Backup
 Client/Client.exe
 Server/Server.exe
+Client/start.bat
+Server/start.bat

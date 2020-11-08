@@ -17,12 +17,9 @@ import (
 
 func main() {
 	var err error
-	err = run()
-	checkError(err)
-}
-
-func run() (err error) {
 	var durationFlag time.Duration
+	durationFlag = 0
+	println(durationFlag)
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt)
 	ctx, _ := context.WithCancel(context.Background())
@@ -34,8 +31,7 @@ func run() (err error) {
 	}()
 	_, err = loopbackCaptureSharedTimerDriven(ctx, durationFlag)
 	checkError(err)
-	println("End of run() function")
-	return
+	println("End of main() function")
 }
 
 func checkError(err error) {
@@ -43,7 +39,6 @@ func checkError(err error) {
 		println(err)
 		os.Exit(1)
 	}
-	return
 }
 
 func loopbackCaptureSharedTimerDriven(ctx context.Context, duration time.Duration) (audio *wav.File, err error) {
