@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"net"
 	"os"
@@ -97,8 +96,7 @@ func loopbackCaptureSharedTimerDriven(ctx context.Context, duration time.Duratio
 	err = ac.GetDevicePeriod(&defaultPeriod, &minimumPeriod)
 	checkError(err)
 
-	//latency = time.Duration(int(defaultPeriod) * 100)
-	latency = time.Duration(int(defaultPeriod) * 10)
+	latency = time.Duration(int(defaultPeriod) * 100)
 
 	println("Default period: " + strconv.Itoa(int(defaultPeriod)))
 	println("Minimum period: " + strconv.Itoa(int(minimumPeriod)))
@@ -142,8 +140,6 @@ func loopbackCaptureSharedTimerDriven(ctx context.Context, duration time.Duratio
 	conn, err := l.AcceptTCP()
 	checkError(err)
 	println("connected to: " + conn.RemoteAddr().String())
-
-	w := bufio.NewWriter(conn)
 	for {
 		acc.GetBuffer(&data, &availableFrameSize, &flags, &devicePosition, &qcpPosition)
 		start := unsafe.Pointer(data)
@@ -154,10 +150,9 @@ func loopbackCaptureSharedTimerDriven(ctx context.Context, duration time.Duratio
 			b = (*byte)(unsafe.Pointer(uintptr(start) + uintptr(n)))
 			buf[n] = *b
 		}
-		_, err = w.Write(buf)
+		_, err = conn.Write(buf)
 		checkError(err)
-		w.Flush()
 		acc.ReleaseBuffer(availableFrameSize)
-		time.Sleep(latency / 4)
+		time.Sleep(latency / 2)
 	}
 }

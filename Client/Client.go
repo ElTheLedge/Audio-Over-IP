@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"flag"
-	"io"
 	"net"
 	"os"
 	"strconv"
@@ -17,12 +15,10 @@ import (
 )
 
 var verbose bool
+var addr string
 
 func main() {
-	var addr string
 	var err error
-
-	buf := make([]byte, 128)
 	var audio *wav.File
 	flag.StringVar(&addr, "e", "", "service address endpoint \nex: -e 127.0.0.1:4040")
 	flag.BoolVar(&verbose, "v", false, "display more info about the stream")
@@ -47,26 +43,8 @@ func main() {
 	audio, err = wav.New(48000, 16, 2)
 	checkError(err)
 
-	go func() {
-		if err = renderSharedTimerDriven(ctx, audio); err != nil {
-			println(err)
-			os.Exit(1)
-		}
-	}()
-	raddr, err := net.ResolveTCPAddr("tcp", addr)
+	err = renderSharedTimerDriven(ctx, audio)
 	checkError(err)
-	conn, err := net.DialTCP("tcp", nil, raddr)
-	checkError(err)
-	defer conn.Close()
-	for i := 0; i < 1000; i++ { //Reduces latency enormously
-		_, err = conn.Read(buf)
-		checkError(err)
-	}
-	for {
-		_, err = conn.Read(buf)
-		checkError(err)
-		io.Copy(audio, bytes.NewBuffer(buf))
-	}
 }
 
 func checkError(err error) {
@@ -137,7 +115,7 @@ func renderSharedTimerDriven(ctx context.Context, audio *wav.File) (err error) {
 		println("Max period in frames: " + strconv.Itoa(int(maxPeriodInFrames)))
 	}
 
-	var latency time.Duration = time.Duration(float64(minPeriodInFrames)/float64(wfx.NSamplesPerSec)*100) * time.Millisecond
+	var latency time.Duration = time.Duration(float64(minPeriodInFrames)/float64(wfx.NSamplesPerSec)*1000) * time.Millisecond
 	err = ac3.InitializeSharedAudioStream(wca.AUDCLNT_SHAREMODE_SHARED, minPeriodInFrames, wfx, nil)
 	checkError(err)
 
@@ -164,37 +142,42 @@ func renderSharedTimerDriven(ctx context.Context, audio *wav.File) (err error) {
 
 	time.Sleep(latency)
 
-	var input = audio.Bytes()
 	var data *byte
-	var offset int
 	var padding uint32
 	var availableFrameSize uint32
 	var b *byte
 	var start = unsafe.Pointer(data)
 	var lim = int(availableFrameSize) * int(wfx.NBlockAlign)
-	var remaining = audio.Length() - offset
+	var buf []byte
+
+	raddr, err := net.ResolveTCPAddr("tcp", addr)
+	checkError(err)
+	conn, err := net.DialTCP("tcp", nil, raddr)
+	checkError(err)
+	defer conn.Close()
+
+	var skip = make([]byte, 256)
+	for i := 0; i < 1000; i++ {
+		_, err = conn.Read(skip)
+		checkError(err)
+	}
 
 	for {
-		input = audio.Bytes()
 		ac3.GetCurrentPadding(&padding)
-		checkError(err)
 		availableFrameSize = bufferFrameSize - padding
 		err = arc.GetBuffer(availableFrameSize, &data)
 		checkError(err)
-
 		start = unsafe.Pointer(data)
 		lim = int(availableFrameSize) * int(wfx.NBlockAlign)
-		remaining = audio.Length() - offset
-		if remaining < lim {
-			lim = remaining
-		}
+		buf = make([]byte, lim)
+		_, err = conn.Read(buf)
+		checkError(err)
 		for n := 0; n < lim; n++ {
 			b = (*byte)(unsafe.Pointer(uintptr(start) + uintptr(n)))
-			*b = input[offset+n]
+			*b = buf[n]
 		}
-		offset += lim
 		err = arc.ReleaseBuffer(availableFrameSize, 0)
 		checkError(err)
-		time.Sleep(latency / 4)
+		time.Sleep(latency / 2)
 	}
 }
