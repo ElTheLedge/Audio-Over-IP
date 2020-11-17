@@ -60,7 +60,7 @@ func renderSharedTimerDriven(ctx context.Context, audio *wav.File) (err error) {
 	defer ole.CoUninitialize()
 
 	var de *wca.IMMDeviceEnumerator
-	wca.CoCreateInstance(wca.CLSID_MMDeviceEnumerator, 0, wca.CLSCTX_ALL, wca.IID_IMMDeviceEnumerator, &de)
+	err = wca.CoCreateInstance(wca.CLSID_MMDeviceEnumerator, 0, wca.CLSCTX_ALL, wca.IID_IMMDeviceEnumerator, &de)
 	checkError(err)
 	defer de.Release()
 
@@ -156,20 +156,23 @@ func renderSharedTimerDriven(ctx context.Context, audio *wav.File) (err error) {
 	checkError(err)
 	defer conn.Close()
 
-	var skip = make([]byte, 256)
-	for i := 0; i < 1000; i++ {
-		_, err = conn.Read(skip)
-		checkError(err)
-	}
-
+	init := true
 	for {
-		ac3.GetCurrentPadding(&padding)
+		err = ac3.GetCurrentPadding(&padding)
+		checkError(err)
 		availableFrameSize = bufferFrameSize - padding
 		err = arc.GetBuffer(availableFrameSize, &data)
 		checkError(err)
 		start = unsafe.Pointer(data)
 		lim = int(availableFrameSize) * int(wfx.NBlockAlign)
 		buf = make([]byte, lim)
+		if init {
+			for i := 0; i < 100; i++ {
+				_, err = conn.Read(buf)
+				checkError(err)
+			}
+			init = false
+		}
 		_, err = conn.Read(buf)
 		checkError(err)
 		for n := 0; n < lim; n++ {
