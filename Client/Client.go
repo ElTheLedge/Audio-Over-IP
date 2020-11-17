@@ -20,8 +20,8 @@ var addr string
 func main() {
 	var err error
 	var audio *wav.File
-	flag.StringVar(&addr, "e", "", "service address endpoint \nex: -e 127.0.0.1:4040")
-	flag.BoolVar(&verbose, "v", false, "display more info about the stream")
+	flag.StringVar(&addr, "e", "", "server address to connect to \nex: -e 127.0.0.1:4040")
+	flag.BoolVar(&verbose, "v", false, "displays more info about the stream")
 	flag.Parse()
 	if addr == "" {
 		println("You have to specify the service address endpoint")

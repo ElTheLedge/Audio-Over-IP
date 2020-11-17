@@ -18,7 +18,6 @@ func main() {
 	var err error
 	var durationFlag time.Duration
 	durationFlag = 0
-	println(durationFlag)
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt)
 	ctx, _ := context.WithCancel(context.Background())
