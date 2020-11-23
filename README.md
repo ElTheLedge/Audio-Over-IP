@@ -26,6 +26,10 @@ Client:
 Server:  
 * There are currently no flags for the server. It automatically starts listening on port 4040 and waits for a client to connect. Only one client is supported at a time per server.  
 
+### Limitations
+* Both devices have to use the same audio device settings (ex: 16 Bit, 48000 Hz), as there is no audio resampler implemented yet  
+* When the connection gets instable, the audio gets delayed by the amount of time the connection dropped  
+
 ## Compilation
 ### Prerequisites for compilation
 Go 1.15 (https://golang.org/dl/)  
