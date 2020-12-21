@@ -1,4 +1,6 @@
 # Realtime Audio over IP
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FLVH-IT%2FAudio-Over-IP.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FLVH-IT%2FAudio-Over-IP?ref=badge_shield)
+
 This package uses the following external dependencies:
 * [go-ole](https://github.com/go-ole/go-ole), which is licenced under an [MIT-like](https://github.com/go-ole/go-ole/blob/master/LICENSE) license.
 * [go-wav](https://github.com/moutend/go-wav), which is licenced under an [MIT-like](https://github.com/moutend/go-wav/blob/master/LICENSE) license.
@@ -52,3 +54,7 @@ If so, you need to install them each like this for example:
 go get github.com/go-ole/go-ole
 ```
 Then rerun "go build" and your executable should be compiled in the source directory.
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FLVH-IT%2FAudio-Over-IP.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FLVH-IT%2FAudio-Over-IP?ref=badge_large)
