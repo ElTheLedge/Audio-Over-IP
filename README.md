@@ -5,17 +5,17 @@ This package uses the following external dependencies:
 * [go-wca](https://github.com/moutend/go-wca), which is licenced under an [MIT-like](https://github.com/moutend/go-wca/blob/develop/LICENSE) license.
 
 ## What does it do?
-This program captures the system Audio of a Windows Computer and sends it to another Windows Computer over the network in almost realtime.  
-**BEWARE:** The Audiostream is not encrypted. If you plan using this Software to send an Audiostream over an untrusted Network, such as the internet for example, you should use something like an SSH tunnel to encrypt the stream.  
+This program captures the system Audio of a Windows Computer and sends it to another Windows computer over the network in almost realtime.  
+**BEWARE:** The audio stream is not encrypted. If you plan to use this Software to send an audio stream over an untrusted network, such as the internet for example, you should use something like an SSH tunnel to encrypt the stream.  
 
 
 ## Usage
-Download the latest release and contine with "How to setup". There are no prerequisites when using the already compiled binary file.  
+Download the latest release and continue with "How to setup". There are no prerequisites when using the already compiled binary file.  
 If you want to however, you can also compile the code yourself as explained below.  
 
 
 ### How to setup
-You have to put the client executable on the computer on which you want to play an audiostream, and the server executable has to be on the computer from which you want to stream the system audio.  
+You have to put the client executable on the computer on which you want to play an audio stream, and the server executable has to be on the computer from which you want to stream the system audio.  
 You can then use the flags listed below to start the server and connect to it with a client.
 
 ### Flags you can use
@@ -46,7 +46,7 @@ Then simply type:
 ```sh
 go build
 ```
-It will then try to compile and tell you wether there are dependencies which are still missing.
+It will then try to compile and tell you whether there are dependencies that are still missing.
 If so, you need to install them each like this for example: 
 ```sh
 go get github.com/go-ole/go-ole
