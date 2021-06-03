@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/binary"
 	"net"
 	"os"
 	"os/signal"
@@ -114,6 +115,23 @@ func loopbackCaptureSharedTimerDriven(ctx context.Context, duration time.Duratio
 	checkError(err)
 	defer acc.Release()
 
+	//TCP LISTENER
+	var addr string = ":4040"
+	laddr, err := net.ResolveTCPAddr("tcp", addr)
+	checkError(err)
+	l, err := net.ListenTCP("tcp", laddr)
+	checkError(err)
+	defer l.Close()
+	println("listening at (tcp) " + laddr.String())
+	conn, err := l.AcceptTCP()
+	checkError(err)
+
+	serverSampleRate := make([]byte, 256)
+	binary.LittleEndian.PutUint32(serverSampleRate, wfx.NSamplesPerSec)
+	_, err = conn.Write(serverSampleRate)
+	checkError(err)
+	time.Sleep(1e8)
+
 	err = ac.Start()
 	checkError(err)
 	println("Start loopback capturing with shared timer driven mode")
@@ -129,15 +147,6 @@ func loopbackCaptureSharedTimerDriven(ctx context.Context, duration time.Duratio
 	var devicePosition uint64
 	var qcpPosition uint64
 
-	var addr string = ":4040"
-	laddr, err := net.ResolveTCPAddr("tcp", addr)
-	checkError(err)
-	l, err := net.ListenTCP("tcp", laddr)
-	checkError(err)
-	defer l.Close()
-	println("listening at (tcp) " + laddr.String())
-	conn, err := l.AcceptTCP()
-	checkError(err)
 	println("connected to: " + conn.RemoteAddr().String())
 	for {
 		acc.GetBuffer(&data, &availableFrameSize, &flags, &devicePosition, &qcpPosition)
@@ -152,6 +161,5 @@ func loopbackCaptureSharedTimerDriven(ctx context.Context, duration time.Duratio
 		_, err = conn.Write(buf)
 		checkError(err)
 		acc.ReleaseBuffer(availableFrameSize)
-		time.Sleep(latency / 2)
 	}
 }

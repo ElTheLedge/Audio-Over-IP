@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"net"
 	"os"
 	"strconv"
@@ -49,7 +50,7 @@ func main() {
 
 func checkError(err error) {
 	if err != nil {
-		println(err)
+		println(fmt.Sprint(err))
 		os.Exit(1)
 	}
 }
@@ -88,6 +89,16 @@ func renderSharedTimerDriven(ctx context.Context, audio *wav.File) (err error) {
 	err = ac3.GetMixFormat(&wfx)
 	checkError(err)
 	defer ole.CoTaskMemFree(uintptr(unsafe.Pointer(wfx)))
+
+	//TCP CONNECTION
+	raddr, err := net.ResolveTCPAddr("tcp", addr)
+	checkError(err)
+	conn, err := net.DialTCP("tcp", nil, raddr)
+	checkError(err)
+	defer conn.Close()
+
+	audio, err = wav.New(48000, 16, 2)
+	checkError(err)
 
 	wfx.WFormatTag = 1
 	wfx.NSamplesPerSec = uint32(audio.SamplesPerSec())
@@ -150,37 +161,32 @@ func renderSharedTimerDriven(ctx context.Context, audio *wav.File) (err error) {
 	var lim = int(availableFrameSize) * int(wfx.NBlockAlign)
 	var buf []byte
 
-	raddr, err := net.ResolveTCPAddr("tcp", addr)
-	checkError(err)
-	conn, err := net.DialTCP("tcp", nil, raddr)
-	checkError(err)
-	defer conn.Close()
-
-	init := true
 	for {
-		err = ac3.GetCurrentPadding(&padding)
-		checkError(err)
-		availableFrameSize = bufferFrameSize - padding
-		err = arc.GetBuffer(availableFrameSize, &data)
-		checkError(err)
-		start = unsafe.Pointer(data)
-		lim = int(availableFrameSize) * int(wfx.NBlockAlign)
-		buf = make([]byte, lim)
-		if init {
-			for i := 0; i < 100; i++ {
-				_, err = conn.Read(buf)
-				checkError(err)
+		for i := 0; i < 200; i++ {
+			skip := make([]byte, 1920)
+			_, err = conn.Read(skip)
+			checkError(err)
+		}
+
+		for {
+			err = ac3.GetCurrentPadding(&padding)
+			checkError(err)
+			availableFrameSize = bufferFrameSize - padding
+			err = arc.GetBuffer(availableFrameSize, &data)
+			checkError(err)
+			start = unsafe.Pointer(data)
+			lim = int(availableFrameSize) * int(wfx.NBlockAlign)
+			buf = make([]byte, lim)
+			_, err = conn.Read(buf)
+			checkError(err)
+
+			for n := 0; n < lim && n < len(buf); n++ {
+				b = (*byte)(unsafe.Pointer(uintptr(start) + uintptr(n)))
+				*b = buf[n]
 			}
-			init = false
+			err = arc.ReleaseBuffer(availableFrameSize, 0)
+			checkError(err)
+
 		}
-		_, err = conn.Read(buf)
-		checkError(err)
-		for n := 0; n < lim; n++ {
-			b = (*byte)(unsafe.Pointer(uintptr(start) + uintptr(n)))
-			*b = buf[n]
-		}
-		err = arc.ReleaseBuffer(availableFrameSize, 0)
-		checkError(err)
-		time.Sleep(latency / 2)
 	}
 }
