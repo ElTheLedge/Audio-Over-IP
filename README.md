@@ -34,7 +34,7 @@ Server:
 
 ## Compilation
 ### Prerequisites for compilation
-Go 1.15 (https://golang.org/dl/)  
+Go 1.16 (https://golang.org/dl/)  
 You'll get the rest when trying to compile  
 
 
