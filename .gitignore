@@ -1,7 +1,10 @@
+#Client Folder
+Client/*.exe
+Client/*.bat
+
+#Server Folder
+Server/*.exe
+Server/*.bat
+
+#Others
 Backup
-Client/Client.exe
-Server/Server.exe
-Client/start.bat
-Server/start.bat
-Client/laptop.bat
-Client/local.bat

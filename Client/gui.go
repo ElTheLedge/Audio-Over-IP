@@ -53,6 +53,15 @@ func startGUI(closeGUI *bool) {
 	form.SubmitText = "Connect"
 	form.CancelText = "Disconnect"
 
+	var disableFormInputs = func() {
+		ipInput.DisableableWidget.Disable()
+		portInput.DisableableWidget.Disable()
+	}
+	var enableFormInputs = func() {
+		ipInput.DisableableWidget.Enable()
+		portInput.DisableableWidget.Enable()
+	}
+
 	//Form refresher loop
 	go func() {
 		var tempNum = *connStatusNum
@@ -69,27 +78,23 @@ func startGUI(closeGUI *bool) {
 					form.OnCancel = func() {
 						disconnect = true
 						*connStatusNum = 0
-						ipInput.DisableableWidget.Enable()
-						portInput.DisableableWidget.Enable()
+						enableFormInputs()
 					}
 					form.Refresh()
 				default:
-					if tempNum == 4 {
-						ipInput.DisableableWidget.Enable()
-						portInput.DisableableWidget.Enable()
+					if tempNum == 4 || tempNum == 2 {
+						enableFormInputs()
 					}
 					form.OnCancel = nil
 					form.OnSubmit = func() {
 						disconnect = false
 						connStatusNum = audioStartup(ipInput.Text+":"+portInput.Text, &disconnect)
-						ipInput.DisableableWidget.Disable()
-						portInput.DisableableWidget.Disable()
+						disableFormInputs()
 						for *connStatusNum == 3 {
 							time.Sleep(100 * time.Millisecond)
 						}
 						if *connStatusNum != 1 {
-							ipInput.DisableableWidget.Enable()
-							portInput.DisableableWidget.Enable()
+							disableFormInputs()
 						}
 					}
 					form.Refresh()
