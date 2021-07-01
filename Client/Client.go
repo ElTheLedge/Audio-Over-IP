@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"net"
@@ -16,46 +15,61 @@ import (
 )
 
 var verbose bool
-var addr string
+var closeApp *bool
 
 func main() {
-	var err error
-	var audio *wav.File
+
+	var guiMode bool
+	var addr string
+	flag.BoolVar(&guiMode, "cli", false, "start cli mode")
 	flag.StringVar(&addr, "e", "", "server address to connect to \nex: -e 127.0.0.1:4040")
 	flag.BoolVar(&verbose, "v", false, "displays more info about the stream")
 	flag.Parse()
-	if addr == "" {
-		println("You have to specify the service address endpoint")
-		println("ex: -e 127.0.0.1:4040")
-		os.Exit(1)
-	}
+	guiMode = !guiMode
 
-	ctx, cancel := context.WithCancel(context.Background())
-	signalChan := make(chan os.Signal, 1)
-	go func() {
-		select {
-		case <-signalChan:
-			cancel()
+	cApp := false
+	closeApp = &cApp
+
+	if guiMode {
+		startGUI(closeApp)
+	} else {
+		if addr == "" {
+			println("You have to specify the service address endpoint")
+			println("ex: -e 127.0.0.1:4040")
 			os.Exit(1)
 		}
 
-	}()
+		var disconnect bool = false
+		_ = audioStartup(addr, &disconnect)
+		signalChan := make(chan os.Signal, 1)
+		select {
+		case <-signalChan:
+			disconnect = true
+			os.Exit(1)
+		}
+	}
+}
 
+func audioStartup(addr string, disconnect *bool) *int {
+	var err error
+	var audio *wav.File
+	var connStatus int = 3
 	audio, err = wav.New(48000, 16, 2)
 	checkError(err)
-
-	err = renderSharedTimerDriven(ctx, audio)
-	checkError(err)
+	go func() {
+		err = renderSharedTimerDriven(audio, addr, &connStatus, &disconnect)
+		checkError(err)
+	}()
+	return &connStatus
 }
 
 func checkError(err error) {
 	if err != nil {
 		println(fmt.Sprint(err))
-		os.Exit(1)
 	}
 }
 
-func renderSharedTimerDriven(ctx context.Context, audio *wav.File) (err error) {
+func renderSharedTimerDriven(audio *wav.File, addr string, connStatus *int, disconnect **bool) (err error) {
 	err = ole.CoInitializeEx(0, ole.COINIT_APARTMENTTHREADED)
 	checkError(err)
 	defer ole.CoUninitialize()
@@ -92,13 +106,16 @@ func renderSharedTimerDriven(ctx context.Context, audio *wav.File) (err error) {
 
 	//TCP CONNECTION
 	raddr, err := net.ResolveTCPAddr("tcp", addr)
-	checkError(err)
+	if err != nil {
+		*connStatus = 2
+		return
+	}
 	conn, err := net.DialTCP("tcp", nil, raddr)
-	checkError(err)
+	if err != nil {
+		*connStatus = 2
+		return
+	}
 	defer conn.Close()
-
-	audio, err = wav.New(48000, 16, 2)
-	checkError(err)
 
 	wfx.WFormatTag = 1
 	wfx.NSamplesPerSec = uint32(audio.SamplesPerSec())
@@ -161,32 +178,37 @@ func renderSharedTimerDriven(ctx context.Context, audio *wav.File) (err error) {
 	var lim = int(availableFrameSize) * int(wfx.NBlockAlign)
 	var buf []byte
 
+	for i := 0; i < 200; i++ {
+		skip := make([]byte, 1920)
+		_, err = conn.Read(skip)
+		checkError(err)
+	}
+	*connStatus = 1
+
 	for {
-		for i := 0; i < 200; i++ {
-			skip := make([]byte, 1920)
-			_, err = conn.Read(skip)
-			checkError(err)
+		if **disconnect {
+			println("Disconnected")
+			return
+		}
+		err = ac3.GetCurrentPadding(&padding)
+		checkError(err)
+		availableFrameSize = bufferFrameSize - padding
+		err = arc.GetBuffer(availableFrameSize, &data)
+		checkError(err)
+		start = unsafe.Pointer(data)
+		lim = int(availableFrameSize) * int(wfx.NBlockAlign)
+		buf = make([]byte, lim)
+		_, err = conn.Read(buf)
+		if err != nil {
+			*connStatus = 4
 		}
 
-		for {
-			err = ac3.GetCurrentPadding(&padding)
-			checkError(err)
-			availableFrameSize = bufferFrameSize - padding
-			err = arc.GetBuffer(availableFrameSize, &data)
-			checkError(err)
-			start = unsafe.Pointer(data)
-			lim = int(availableFrameSize) * int(wfx.NBlockAlign)
-			buf = make([]byte, lim)
-			_, err = conn.Read(buf)
-			checkError(err)
-
-			for n := 0; n < lim && n < len(buf); n++ {
-				b = (*byte)(unsafe.Pointer(uintptr(start) + uintptr(n)))
-				*b = buf[n]
-			}
-			err = arc.ReleaseBuffer(availableFrameSize, 0)
-			checkError(err)
-
+		for n := 0; n < lim && n < len(buf); n++ {
+			b = (*byte)(unsafe.Pointer(uintptr(start) + uintptr(n)))
+			*b = buf[n]
 		}
+		err = arc.ReleaseBuffer(availableFrameSize, 0)
+		checkError(err)
+
 	}
 }

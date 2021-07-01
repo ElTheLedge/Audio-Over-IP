@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/binary"
 	"net"
 	"os"
@@ -17,18 +16,16 @@ import (
 
 func main() {
 	var err error
-	var durationFlag time.Duration
-	durationFlag = 0
+	var durationFlag time.Duration = 0
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt)
-	ctx, _ := context.WithCancel(context.Background())
 	go func() {
 		select {
 		case <-signalChan:
 			os.Exit(1)
 		}
 	}()
-	_, err = loopbackCaptureSharedTimerDriven(ctx, durationFlag)
+	_, err = loopbackCaptureSharedTimerDriven(durationFlag)
 	checkError(err)
 	println("End of main() function")
 }
@@ -40,7 +37,7 @@ func checkError(err error) {
 	}
 }
 
-func loopbackCaptureSharedTimerDriven(ctx context.Context, duration time.Duration) (audio *wav.File, err error) {
+func loopbackCaptureSharedTimerDriven(duration time.Duration) (audio *wav.File, err error) {
 	err = ole.CoInitializeEx(0, ole.COINIT_APARTMENTTHREADED)
 	checkError(err)
 	defer ole.CoUninitialize()
