@@ -191,10 +191,8 @@ func renderSharedTimerDriven(audio *wav.File, addr string, connStatus *int, disc
 			return
 		}
 		err = ac3.GetCurrentPadding(&padding)
-		checkError(err)
 		availableFrameSize = bufferFrameSize - padding
 		err = arc.GetBuffer(availableFrameSize, &data)
-		checkError(err)
 		start = unsafe.Pointer(data)
 		lim = int(availableFrameSize) * int(wfx.NBlockAlign)
 		buf = make([]byte, lim)
@@ -208,7 +206,6 @@ func renderSharedTimerDriven(audio *wav.File, addr string, connStatus *int, disc
 			*b = buf[n]
 		}
 		err = arc.ReleaseBuffer(availableFrameSize, 0)
-		checkError(err)
-
+		time.Sleep(latency / 10)
 	}
 }

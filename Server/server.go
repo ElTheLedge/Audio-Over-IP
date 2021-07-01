@@ -1,7 +1,7 @@
 package main
 
 import (
-	"encoding/binary"
+	"log"
 	"net"
 	"os"
 	"os/signal"
@@ -32,8 +32,7 @@ func main() {
 
 func checkError(err error) {
 	if err != nil {
-		println(err)
-		os.Exit(1)
+		log.Fatalln(err)
 	}
 }
 
@@ -112,6 +111,44 @@ func loopbackCaptureSharedTimerDriven(duration time.Duration) (audio *wav.File, 
 	checkError(err)
 	defer acc.Release()
 
+	var sendAudio = func(conn *net.TCPConn) {
+		err = ac.Start()
+		checkError(err)
+		println("Start loopback capturing with shared timer driven mode")
+		if duration <= 0 {
+			println("Press Ctrl-C to stop capturing")
+		}
+
+		var data *byte
+		var b *byte
+		var availableFrameSize uint32
+		var flags uint32
+		var devicePosition uint64
+		var qcpPosition uint64
+
+		println("connected to: " + conn.RemoteAddr().String())
+		for {
+			acc.GetBuffer(&data, &availableFrameSize, &flags, &devicePosition, &qcpPosition)
+			start := unsafe.Pointer(data)
+			lim := int(availableFrameSize) * int(wfx.NBlockAlign)
+			buf := make([]byte, lim)
+
+			for n := 0; n < lim; n++ {
+				b = (*byte)(unsafe.Pointer(uintptr(start) + uintptr(n)))
+				buf[n] = *b
+			}
+			_, err = conn.Write(buf)
+			if err != nil {
+				println("Client at " + conn.RemoteAddr().String() + " disconnected")
+				return
+			}
+			acc.ReleaseBuffer(availableFrameSize)
+
+			//Lower CPU usage (from 10% to 0.x%) but higher latency
+			time.Sleep(latency / 10)
+		}
+	}
+
 	//TCP LISTENER
 	var addr string = ":4040"
 	laddr, err := net.ResolveTCPAddr("tcp", addr)
@@ -119,44 +156,10 @@ func loopbackCaptureSharedTimerDriven(duration time.Duration) (audio *wav.File, 
 	l, err := net.ListenTCP("tcp", laddr)
 	checkError(err)
 	defer l.Close()
-	println("listening at (tcp) " + laddr.String())
+	println("listening at (tcp) " + l.Addr().String())
 	conn, err := l.AcceptTCP()
 	checkError(err)
-
-	serverSampleRate := make([]byte, 256)
-	binary.LittleEndian.PutUint32(serverSampleRate, wfx.NSamplesPerSec)
-	_, err = conn.Write(serverSampleRate)
-	checkError(err)
-	time.Sleep(1e8)
-
-	err = ac.Start()
-	checkError(err)
-	println("Start loopback capturing with shared timer driven mode")
-	if duration <= 0 {
-		println("Press Ctrl-C to stop capturing")
-	}
-	time.Sleep(latency)
-
-	var data *byte
-	var b *byte
-	var availableFrameSize uint32
-	var flags uint32
-	var devicePosition uint64
-	var qcpPosition uint64
-
-	println("connected to: " + conn.RemoteAddr().String())
-	for {
-		acc.GetBuffer(&data, &availableFrameSize, &flags, &devicePosition, &qcpPosition)
-		start := unsafe.Pointer(data)
-		lim := int(availableFrameSize) * int(wfx.NBlockAlign)
-		buf := make([]byte, int((float32(lim)*2)/2))
-
-		for n := 0; n < lim; n++ {
-			b = (*byte)(unsafe.Pointer(uintptr(start) + uintptr(n)))
-			buf[n] = *b
-		}
-		_, err = conn.Write(buf)
-		checkError(err)
-		acc.ReleaseBuffer(availableFrameSize)
-	}
+	println("Client connected")
+	sendAudio(conn)
+	return
 }

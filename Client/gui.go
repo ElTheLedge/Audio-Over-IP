@@ -9,6 +9,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -25,7 +26,10 @@ var connStatuses = []string{ //Status Numbers
 
 func startGUI(closeGUI *bool) {
 	a := app.New()
+	a.Settings().SetTheme(theme.DarkTheme())
+
 	w := a.NewWindow("Audio over IP")
+	w.CenterOnScreen()
 
 	ipInput := widget.NewEntry()
 	ipInput.SetPlaceHolder("127.0.0.1")
@@ -64,41 +68,32 @@ func startGUI(closeGUI *bool) {
 
 	//Form refresher loop
 	go func() {
-		var tempNum = *connStatusNum
-		tempNum++
 		var disconnect bool = false
-
 		for {
 			time.Sleep(100 * time.Millisecond)
-			if tempNum != *connStatusNum {
-				tempNum = *connStatusNum
-				switch tempNum {
-				case 1:
-					form.OnSubmit = nil
-					form.OnCancel = func() {
-						disconnect = true
-						*connStatusNum = 0
-						enableFormInputs()
-					}
-					form.Refresh()
-				default:
-					if tempNum == 4 || tempNum == 2 {
-						enableFormInputs()
-					}
-					form.OnCancel = nil
-					form.OnSubmit = func() {
-						disconnect = false
-						connStatusNum = audioStartup(ipInput.Text+":"+portInput.Text, &disconnect)
-						disableFormInputs()
-						for *connStatusNum == 3 {
-							time.Sleep(100 * time.Millisecond)
-						}
-						if *connStatusNum != 1 {
-							disableFormInputs()
-						}
-					}
-					form.Refresh()
+			switch *connStatusNum {
+			case 1:
+				form.OnSubmit = nil
+				form.OnCancel = func() {
+					disconnect = true
+					*connStatusNum = 0
+					enableFormInputs()
 				}
+				disableFormInputs()
+				form.Refresh()
+			case 2:
+				enableFormInputs()
+			case 3:
+				disableFormInputs()
+			case 4, 0:
+				enableFormInputs()
+				form.OnCancel = nil
+				form.OnSubmit = func() {
+					disconnect = false
+					connStatusNum = audioStartup(ipInput.Text+":"+portInput.Text, &disconnect)
+					disableFormInputs()
+				}
+				form.Refresh()
 			}
 		}
 	}()
