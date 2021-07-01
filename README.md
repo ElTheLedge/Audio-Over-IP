@@ -17,7 +17,7 @@ If you want to however, you can also compile the code yourself as explained belo
 
 ### How to setup
 You have to put the client executable on the computer on which you want to play an audio stream, and the server executable has to be on the computer from which you want to stream the system audio.  
-You can then use the flags listed below to start the server and connect to it with a client.
+You can then use the flags listed below to start the server and connect to it with a client.  
 
 ### Flags you can use
 Client:
