@@ -3,7 +3,9 @@ This package uses the following external dependencies:
 * [go-ole](https://github.com/go-ole/go-ole), which is licenced under an [MIT](https://github.com/go-ole/go-ole/blob/master/LICENSE) license.
 * [go-wav](https://github.com/moutend/go-wav), which is licenced under an [MIT](https://github.com/moutend/go-wav/blob/master/LICENSE) license.
 * [go-wca](https://github.com/moutend/go-wca), which is licenced under an [MIT](https://github.com/moutend/go-wca/blob/develop/LICENSE) license.
+* [keybd_event](https://github.com/micmonay/keybd_event), which is licenced under an [MIT](https://github.com/micmonay/keybd_event/blob/master/LICENSE) license.
 * [fyne](https://github.com/fyne-io/fyne), which is licenced under an [BSD 3-Clause "New" or "Revised"](https://github.com/fyne-io/fyne/blob/master/LICENSE) license.
+
 
 ## What does it do?
 This program captures the system Audio of a Windows Computer and sends it to another Windows computer over the network in almost realtime.  

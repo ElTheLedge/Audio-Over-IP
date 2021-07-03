@@ -9,14 +9,12 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/LVH-IT/mygotools"
 	"github.com/go-ole/go-ole"
-	"github.com/moutend/go-wav"
 	"github.com/moutend/go-wca/pkg/wca"
 )
 
 func main() {
-	var err error
-	var durationFlag time.Duration = 0
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt)
 	go func() {
@@ -25,9 +23,12 @@ func main() {
 			os.Exit(1)
 		}
 	}()
-	_, err = loopbackCaptureSharedTimerDriven(durationFlag)
-	checkError(err)
-	println("End of main() function")
+	for {
+		loopbackCaptureSharedTimerDriven()
+		time.Sleep(100 * time.Millisecond)
+		mygotools.ClearCLI()
+	}
+
 }
 
 func checkError(err error) {
@@ -36,7 +37,8 @@ func checkError(err error) {
 	}
 }
 
-func loopbackCaptureSharedTimerDriven(duration time.Duration) (audio *wav.File, err error) {
+func loopbackCaptureSharedTimerDriven() {
+	var err error
 	err = ole.CoInitializeEx(0, ole.COINIT_APARTMENTTHREADED)
 	checkError(err)
 	defer ole.CoUninitialize()
@@ -71,15 +73,6 @@ func loopbackCaptureSharedTimerDriven(duration time.Duration) (audio *wav.File, 
 	checkError(err)
 	defer ole.CoTaskMemFree(uintptr(unsafe.Pointer(wfx)))
 
-	wfx.WFormatTag = 1
-	wfx.WBitsPerSample = 16
-	wfx.NBlockAlign = (wfx.WBitsPerSample / 8) * wfx.NChannels // 16 bit stereo is 32bit (4 byte) per sample
-	wfx.NAvgBytesPerSec = wfx.NSamplesPerSec * uint32(wfx.NBlockAlign)
-	wfx.CbSize = 0
-
-	audio, err = wav.New(int(wfx.NSamplesPerSec), int(wfx.WBitsPerSample), int(wfx.NChannels))
-	checkError(err)
-
 	println("--------")
 	println("Format: PCM " + strconv.Itoa(int(wfx.WBitsPerSample)) + " bit signed integer")
 	println("Rate: " + strconv.Itoa(int(wfx.NSamplesPerSec)) + " Hz")
@@ -111,44 +104,6 @@ func loopbackCaptureSharedTimerDriven(duration time.Duration) (audio *wav.File, 
 	checkError(err)
 	defer acc.Release()
 
-	var sendAudio = func(conn *net.TCPConn) {
-		err = ac.Start()
-		checkError(err)
-		println("Start loopback capturing with shared timer driven mode")
-		if duration <= 0 {
-			println("Press Ctrl-C to stop capturing")
-		}
-
-		var data *byte
-		var b *byte
-		var availableFrameSize uint32
-		var flags uint32
-		var devicePosition uint64
-		var qcpPosition uint64
-
-		println("connected to: " + conn.RemoteAddr().String())
-		for {
-			acc.GetBuffer(&data, &availableFrameSize, &flags, &devicePosition, &qcpPosition)
-			start := unsafe.Pointer(data)
-			lim := int(availableFrameSize) * int(wfx.NBlockAlign)
-			buf := make([]byte, lim)
-
-			for n := 0; n < lim; n++ {
-				b = (*byte)(unsafe.Pointer(uintptr(start) + uintptr(n)))
-				buf[n] = *b
-			}
-			_, err = conn.Write(buf)
-			if err != nil {
-				println("Client at " + conn.RemoteAddr().String() + " disconnected")
-				return
-			}
-			acc.ReleaseBuffer(availableFrameSize)
-
-			//Lower CPU usage (from 10% to 0.x%) but higher latency
-			time.Sleep(latency / 10)
-		}
-	}
-
 	//TCP LISTENER
 	var addr string = ":4040"
 	laddr, err := net.ResolveTCPAddr("tcp", addr)
@@ -159,7 +114,39 @@ func loopbackCaptureSharedTimerDriven(duration time.Duration) (audio *wav.File, 
 	println("listening at (tcp) " + l.Addr().String())
 	conn, err := l.AcceptTCP()
 	checkError(err)
-	println("Client connected")
-	sendAudio(conn)
-	return
+	println("Client connected (" + conn.RemoteAddr().String() + ")")
+
+	err = ac.Start()
+	checkError(err)
+	println("Start loopback capturing with shared timer driven mode")
+	println("Press Ctrl-C to stop capturing")
+
+	var data *byte
+	var b *byte
+	var availableFrameSize uint32
+	var flags uint32
+	var devicePosition uint64
+	var qcpPosition uint64
+
+	for {
+		acc.GetBuffer(&data, &availableFrameSize, &flags, &devicePosition, &qcpPosition)
+		start := unsafe.Pointer(data)
+		lim := int(availableFrameSize) * int(wfx.NBlockAlign)
+		buf := make([]byte, lim)
+
+		for n := 0; n < lim; n++ {
+			b = (*byte)(unsafe.Pointer(uintptr(start) + uintptr(n)))
+			buf[n] = *b
+		}
+
+		_, err = conn.Write(buf)
+		if err != nil {
+			println("Client at " + conn.RemoteAddr().String() + " disconnected")
+			break
+		}
+		acc.ReleaseBuffer(availableFrameSize)
+
+		//Lower CPU usage (from 10% to 0.x%) but higher latency
+		time.Sleep(latency / 2)
+	}
 }

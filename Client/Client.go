@@ -6,37 +6,46 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"syscall"
 	"time"
 	"unsafe"
 
 	"github.com/go-ole/go-ole"
+	"github.com/micmonay/keybd_event"
 	"github.com/moutend/go-wav"
 	"github.com/moutend/go-wca/pkg/wca"
 )
 
 var verbose bool
 var closeApp *bool
+var guiMode bool
 
 func main() {
-
-	var guiMode bool
 	var addr string
 	flag.BoolVar(&guiMode, "cli", false, "start cli mode")
 	flag.StringVar(&addr, "e", "", "server address to connect to \nex: -e 127.0.0.1:4040")
 	flag.BoolVar(&verbose, "v", false, "displays more info about the stream")
 	flag.Parse()
 	guiMode = !guiMode
-
 	cApp := false
 	closeApp = &cApp
 
 	if guiMode {
 		startGUI(closeApp)
 	} else {
+		//Program gets compiled using "go build -ldflags -H=windowsgui" -> no cli exists
+		//Therefore we need to attach to a cli to see prints
+		//Source: https://stackoverflow.com/questions/23743217/printing-output-to-a-command-window-when-golang-application-is-compiled-with-ld
+		modkernel32 := syscall.NewLazyDLL("kernel32.dll")
+		procAttachConsole := modkernel32.NewProc("AttachConsole")
+		procAttachConsole.Call(uintptr(^uint32(0)))
+		println()
+
 		if addr == "" {
 			println("You have to specify the service address endpoint")
 			println("ex: -e 127.0.0.1:4040")
-			os.Exit(1)
+			pressEnterInCLI()
+			os.Exit(0)
 		}
 
 		var disconnect bool = false
@@ -45,7 +54,7 @@ func main() {
 		select {
 		case <-signalChan:
 			disconnect = true
-			os.Exit(1)
+			os.Exit(0)
 		}
 	}
 }
@@ -63,8 +72,20 @@ func audioStartup(addr string, disconnect *bool) *int {
 	return &connStatus
 }
 
+//Send an Enter keypress to the cli to create a new usable line in the cli after exiting the program (only necessary in "-cli" mode)
+func pressEnterInCLI() {
+	kb, _ := keybd_event.NewKeyBonding()
+	kb.SetKeys(keybd_event.VK_ENTER)
+	kb.Launching()
+}
+
 func checkError(err error) {
 	if err != nil {
+		if !guiMode {
+			println(fmt.Sprint(err))
+			pressEnterInCLI()
+			os.Exit(0)
+		}
 		println(fmt.Sprint(err))
 	}
 }
@@ -106,24 +127,18 @@ func renderSharedTimerDriven(audio *wav.File, addr string, connStatus *int, disc
 
 	//TCP CONNECTION
 	raddr, err := net.ResolveTCPAddr("tcp", addr)
+	checkError(err)
 	if err != nil {
 		*connStatus = 2
 		return
 	}
 	conn, err := net.DialTCP("tcp", nil, raddr)
+	checkError(err)
 	if err != nil {
 		*connStatus = 2
 		return
 	}
 	defer conn.Close()
-
-	wfx.WFormatTag = 1
-	wfx.NSamplesPerSec = uint32(audio.SamplesPerSec())
-	wfx.WBitsPerSample = uint16(audio.BitsPerSample())
-	wfx.NChannels = uint16(audio.Channels())
-	wfx.NBlockAlign = uint16(audio.BlockAlign())
-	wfx.NAvgBytesPerSec = uint32(audio.AvgBytesPerSec())
-	wfx.CbSize = 0
 
 	if verbose {
 		println("--------")
@@ -178,10 +193,18 @@ func renderSharedTimerDriven(audio *wav.File, addr string, connStatus *int, disc
 	var lim = int(availableFrameSize) * int(wfx.NBlockAlign)
 	var buf []byte
 
+	//Reduce latency by skipping over the first parts of audio
+	//Recalute lim since it usually starts with 0 -> wouldn't skip any audio
 	for i := 0; i < 200; i++ {
-		skip := make([]byte, 1920)
+		availableFrameSize = bufferFrameSize - padding
+		lim = int(availableFrameSize) * int(wfx.NBlockAlign)
+		skip := make([]byte, lim)
 		_, err = conn.Read(skip)
 		checkError(err)
+		if err != nil {
+			*connStatus = 4
+			return
+		}
 	}
 	*connStatus = 1
 
@@ -197,8 +220,10 @@ func renderSharedTimerDriven(audio *wav.File, addr string, connStatus *int, disc
 		lim = int(availableFrameSize) * int(wfx.NBlockAlign)
 		buf = make([]byte, lim)
 		_, err = conn.Read(buf)
+		checkError(err)
 		if err != nil {
 			*connStatus = 4
+			break
 		}
 
 		for n := 0; n < lim && n < len(buf); n++ {
@@ -206,6 +231,8 @@ func renderSharedTimerDriven(audio *wav.File, addr string, connStatus *int, disc
 			*b = buf[n]
 		}
 		err = arc.ReleaseBuffer(availableFrameSize, 0)
-		time.Sleep(latency / 10)
+		checkError(err)
+		time.Sleep(latency / 2)
 	}
+	return
 }
