@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net"
 	"os"
@@ -14,7 +15,12 @@ import (
 	"github.com/moutend/go-wca/pkg/wca"
 )
 
+var listenPort *string
+
 func main() {
+	listenPort = flag.String("p", "4040", "Port to listen on")
+	flag.Parse()
+
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt)
 	go func() {
@@ -105,8 +111,7 @@ func loopbackCaptureSharedTimerDriven() {
 	defer acc.Release()
 
 	//TCP LISTENER
-	var addr string = ":4040"
-	laddr, err := net.ResolveTCPAddr("tcp", addr)
+	laddr, err := net.ResolveTCPAddr("tcp", ":"+*listenPort)
 	checkError(err)
 	l, err := net.ListenTCP("tcp", laddr)
 	checkError(err)

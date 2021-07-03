@@ -17,14 +17,16 @@ var windowHeight float32 = 128
 var windowLength float32 = 384
 
 var connStatuses = []string{ //Status Numbers
-	"Idle",              //0
-	"Connected",         //1
-	"Connection failed", //2
-	"Connecting...",     //3
-	"Connection lost",   //4
+	"Idle",               //0
+	"Connected",          //1
+	"Connection failed",  //2
+	"Connecting...",      //3
+	"Connection lost",    //4
+	"Initializing...",    //5
+	"Invalid IP or Port", //6
 }
 
-func startGUI(closeGUI *bool) {
+func startGUI() {
 	a := app.New()
 	a.Settings().SetTheme(theme.DarkTheme())
 
@@ -81,11 +83,16 @@ func startGUI(closeGUI *bool) {
 				}
 				disableFormInputs()
 				form.Refresh()
-			case 2:
-				enableFormInputs()
-			case 3:
+			case 3, 5:
+				form.OnSubmit = nil
+				form.OnCancel = func() {
+					disconnect = true
+					*connStatusNum = 0
+					enableFormInputs()
+				}
 				disableFormInputs()
-			case 4, 0:
+				form.Refresh()
+			case 4, 0, 2, 6:
 				enableFormInputs()
 				form.OnCancel = nil
 				form.OnSubmit = func() {
