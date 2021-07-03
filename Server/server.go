@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"runtime"
 	"strconv"
 	"time"
 	"unsafe"
@@ -39,7 +40,8 @@ func main() {
 
 func checkError(err error) {
 	if err != nil {
-		log.Fatalln(err)
+		_, fn, line, _ := runtime.Caller(1)
+		log.Printf("[error] %s:%d %v", fn, line, err)
 	}
 }
 
