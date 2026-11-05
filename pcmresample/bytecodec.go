@@ -6,6 +6,8 @@ import (
 	"math"
 )
 
+const q31 = 1 << 31
+
 // decodeBytesToPlanar converts interleaved []byte PCM to planar [][]float32 normalized to [-1,1).
 func decodeBytesToPlanar(in []byte, fmt SampleFormat, channels int) ([][]float32, error) {
 	if len(in)%(channels*4) != 0 {
@@ -29,7 +31,7 @@ func decodeBytesToPlanar(in []byte, fmt SampleFormat, channels int) ([][]float32
 			case PCM32Int:
 				val := int32(u)
 				// Normalize signed Q31 to [-1, 1)
-				out[c][i] = float32(float64(val) / 2147483648.0)
+				out[c][i] = float32(float64(val) * (1.0 / q31))
 			default:
 				return nil, errors.New("unsupported format")
 			}
@@ -67,7 +69,12 @@ func encodePlanarToBytes(in [][]float32, fmt SampleFormat) ([]byte, error) {
 				if v < -1.0 {
 					v = -1.0
 				}
-				s := int32(math.Round(float64(v) * 2147483647.0))
+				scaled := v * q31
+				s := int32(scaled)
+				if s == math.MinInt32 {
+					s = math.MinInt32 + 1
+				}
+
 				binary.LittleEndian.PutUint32(out[off:off+4], uint32(s))
 			default:
 				return nil, errors.New("unsupported format")

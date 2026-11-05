@@ -3,7 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { FolderOpen, Github, Loader2 } from "lucide-react";
+import { FolderOpen, Loader2 } from "lucide-react";
+import { GithubIcon } from "@/components/GithubIcon";
 import { useToast } from "@/components/ui/use-toast";
 import { GetServerConfig, SaveServerConfig, GetClientConfig, SaveClientConfig, OpenConfigDir, GetConfigDir } from "../../wailsjs/go/main/App";
 import { main, pcmresample } from "../../wailsjs/go/models";
@@ -92,7 +93,7 @@ export default function SettingsPage() {
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <Button className="" onClick={() => { BrowserOpenURL("https://github.com/ElTheLedge/Audio-Over-IP") }}>
-                                <Github className="mr-1" />@ElTheLedge/Audio-Over-IP
+                                <GithubIcon className="mr-1" />@ElTheLedge/Audio-Over-IP
                             </Button>
                         </CardContent>
                     </Card>

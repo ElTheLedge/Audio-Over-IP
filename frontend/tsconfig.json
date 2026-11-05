@@ -22,7 +22,8 @@
 
     /* Path */
     "rootDir": "src",
-    "baseUrl": "./",
+    /* No "baseUrl": TypeScript 7 removed it. Without it, "paths" entries
+       resolve relative to this file's directory, which is what we want. */
     "paths": {
       "@/*": ["./src/*"]
     }

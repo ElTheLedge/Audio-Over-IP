@@ -41,9 +41,10 @@ type Server struct {
 
 	infoCancel context.CancelFunc
 
-	// Runtime state
+	// Runtime state. Guarded by the package-level serversMu, not by a
+	// per-Server mutex: ListServers hands out Server values by copy, so any
+	// lock stored here would be copied along with them and protect nothing.
 	players     map[string]*DevicePlayer // Map Key: DeviceID (or "default")
-	playersMu   sync.Mutex
 	distributor *AudioDistributor
 }
 
