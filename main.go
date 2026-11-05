@@ -5,8 +5,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/wailsapp/wails/v2"
-	"github.com/wailsapp/wails/v2/pkg/options"
+	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 //go:embed all:frontend/dist
@@ -31,24 +31,41 @@ func main() {
 		log.Println("Could not init clientLogger:", err)
 	}
 
-	// Create application with options
-	err = wails.Run(&options.App{
+	// Create application with options. Name is the internal application identifier (menu
+	// labels, About dialog, autostart slug); the user-visible name is the window Title below.
+	wailsApp := application.New(application.Options{
+		Name:        "AudioOverIP",
+		Description: "Stream audio over the network",
+		Services: []application.Service{
+			application.NewService(app),
+		},
+		Assets: application.AssetOptions{
+			Handler: application.AssetFileServerFS(assets),
+		},
+	})
+
+	app.setWails(wailsApp)
+
+	mainWindow := wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
+		Name:             "main",
 		Title:            "Audio Over IP",
 		Width:            1280,
 		Height:           720,
 		MinWidth:         384,
 		MinHeight:        216,
-		Assets:           assets,
 		Frameless:        true,
-		CSSDragProperty:  "widows",
-		CSSDragValue:     "1",
-		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
-		OnStartup:        app.startup,
-		Bind: []interface{}{
-			app,
-		},
-		OnDomReady: app.domReady,
+		BackgroundColour: application.NewRGBA(27, 38, 54, 1),
+		URL:              "/",
 	})
+
+	app.setMainWindow(mainWindow)
+
+	// Start the frontend updaters once the frontend runtime is ready (replaces v2 OnDomReady)
+	mainWindow.OnWindowEvent(events.Common.WindowRuntimeReady, func(*application.WindowEvent) {
+		app.domReady()
+	})
+
+	err = wailsApp.Run()
 
 	if err != nil {
 		clientLogger.Errorf("wails run failed: %v", err)

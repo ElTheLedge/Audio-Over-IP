@@ -1,15 +1,15 @@
 {
 	"fixed": {
-		"file_version": "{{.Info.ProductVersion}}"
+		"file_version": "0.9.0.1"
 	},
 	"info": {
-		"0000": {
-			"ProductVersion": "{{.Info.ProductVersion}}",
-			"CompanyName": "{{.Info.CompanyName}}",
-			"FileDescription": "{{.Info.ProductName}}",
-			"LegalCopyright": "{{.Info.Copyright}}",
-			"ProductName": "{{.Info.ProductName}}",
-			"Comments": "{{.Info.Comments}}"
+		"0409": {
+			"ProductVersion": "0.9.0.1",
+			"CompanyName": "ElTheLedge",
+			"FileDescription": "Stream audio over the network",
+			"LegalCopyright": "",
+			"ProductName": "Audio-Over-IP",
+			"Comments": ""
 		}
 	}
 }

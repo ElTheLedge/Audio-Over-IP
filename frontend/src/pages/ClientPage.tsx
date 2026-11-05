@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { AddServer, RemoveServer, ConnectToAudioServer, DisconnetFromAudioServer, GetServerList, ReorderServers, CheckServerConnection } from "../../wailsjs/go/main/App";
-import { EventsOff, EventsOn } from "../../wailsjs/runtime/runtime";
-import { main } from "../../wailsjs/go/models";
+import { AddServer, RemoveServer, ConnectToAudioServer, DisconnetFromAudioServer, GetServerList, ReorderServers, CheckServerConnection } from "../../bindings/AuOvIP/app";
+import { Events } from "@wailsio/runtime";
+import { Server } from "../../bindings/AuOvIP/models";
 import { ServerSettingsDialog } from "../components/ServerSettingsDialog";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +16,7 @@ import { CSS } from "@dnd-kit/utilities";
 function ClientPage() {
     const [ipAddress, setIpAddress] = useState("");
     const [port, setPort] = useState("");
-    const [servers, setServers] = useState<Array<main.Server>>([]);
+    const [servers, setServers] = useState<Server[]>([]);
     const [isAdding, setIsAdding] = useState(false);
     const { toast } = useToast();
 
@@ -29,23 +29,24 @@ function ClientPage() {
 
     useEffect(() => {
         GetServerList().then((list) => {
-            setServers(list.map(s => new main.Server(s)));
+            setServers(list || []);
         });
 
-        const updateHandler = (data: any) => {
-            setServers((prev) => prev.map((s) => (s.ID === data.serverId) ? new main.Server({ ...s, Status: data.statusText }) : s));
+        const updateHandler = (e: Events.WailsEvent<"updateConnStatus">) => {
+            const data = e.data;
+            setServers((prev) => prev.map((s) => (s.ID === data.serverId) ? { ...s, Status: data.statusText } : s));
         };
 
-        const listHandler = (list: any[]) => {
-            setServers((list || []).map((s: any) => new main.Server(s)));
+        const listHandler = (e: Events.WailsEvent<"serversUpdated">) => {
+            setServers(e.data || []);
         };
 
-        EventsOn("updateConnStatus", updateHandler);
-        EventsOn("serversUpdated", listHandler);
+        const unsubscribers: Array<() => void> = [];
+        unsubscribers.push(Events.On("updateConnStatus", updateHandler));
+        unsubscribers.push(Events.On("serversUpdated", listHandler));
 
         return () => {
-            EventsOff("updateConnStatus");
-            EventsOff("serversUpdated");
+            for (const off of unsubscribers) off();
         };
     }, []);
 
@@ -149,7 +150,7 @@ function ClientPage() {
     );
 }
 
-function SortableServerCard({ server }: { server: main.Server }) {
+function SortableServerCard({ server }: { server: Server }) {
     const {
         attributes,
         listeners,

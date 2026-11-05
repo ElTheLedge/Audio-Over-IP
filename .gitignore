@@ -1,5 +1,7 @@
 logs
 build/bin
-frontend/package-lock.json
-frontend/package.json.md5
 THIRD_PARTY_LICENSES
+
+# Wails v3 build artifacts
+.task
+*.syso

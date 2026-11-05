@@ -1,35 +1,35 @@
 # Build Directory
 
-The build directory is used to house all the build files and assets for the application. 
+The build directory is used to house all the build files and assets for the application (Wails v3).
+
+This application is Windows-only (it relies on the Windows Core Audio API), so only the
+Windows build files are present.
 
 The structure is:
 
-* bin - Output directory
-* darwin - macOS specific files (unused for this project)
-* windows - Windows specific files
-
-## Mac (NOT USED - THIS IS CURRENTLY A WINDOWS ONLY APP)
-
-The `darwin` directory holds files specific to Mac builds.
-These may be customised and used as part of the build. To return these files to the default state, simply delete them
-and
-build with `wails build`.
-
-The directory contains the following files:
-
-- `Info.plist` - the main plist file used for Mac builds. It is used when building using `wails build`.
-- `Info.dev.plist` - same as the main plist file but used when building using `wails dev`.
+* bin - Output directory. `wails3 build` produces the standalone `AudioOverIP.exe` here.
+* config.yml - Project configuration (product info, dev mode). After changing `info`, run
+  `wails3 task common:update:build-assets` to regenerate the assets below.
+* Taskfile.yml - Shared build tasks (frontend build, bindings, icons, ...)
+* windows - Windows specific files and tasks
 
 ## Windows
 
-The `windows` directory contains the manifest and rc files used when building with `wails build`.
-These may be customised for your application. To return these files to the default state, simply delete them and
-build with `wails build`.
+The app ships as a single, self-contained executable built with `wails3 build` (via
+`wails3 task build`). No installer is used - NSIS packaging is not part of this project.
 
-- `icon.ico` - The icon used for the application. This is used when building using `wails build`. If you wish to
-  use a different icon, simply replace this file with your own. If it is missing, a new `icon.ico` file
-  will be created using the `appicon.png` file in the build directory.
-- `installer/*` - The files used to create the Windows installer. These are used when building using `wails build`.
-- `info.json` - Application details used for Windows builds. The data here will be used by the Windows installer,
-  as well as the application itself (right click the exe -> properties -> details)
+The `windows` directory contains the manifest and resource files used when building. These may be
+customised for your application. To return these files to the default state, run
+`wails3 task common:update:build-assets`; it deletes the platform assets this Windows-only app
+never uses afterwards.
+
+- `icon.ico` - The icon used for the application. It is generated from the `appicon.png` file in this
+  directory (`wails3 task common:generate:icons`). If you wish to use a different icon, replace
+  `appicon.png`.
+- `info.json` - Application details used for Windows builds. The data here is shown by the executable
+  itself (right click the exe -> properties -> details).
 - `wails.exe.manifest` - The main application manifest file.
+
+MSIX packaging remains available as an optional extra (`wails3 task package`, which runs
+`wails3 tool msix`). The CLI renders the MSIX manifest from the metadata in `build/config.yml`,
+so this project keeps no MSIX files of its own.

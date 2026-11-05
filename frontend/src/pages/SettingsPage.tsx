@@ -6,26 +6,28 @@ import { Button } from "@/components/ui/button";
 import { FolderOpen, Loader2 } from "lucide-react";
 import { GithubIcon } from "@/components/GithubIcon";
 import { useToast } from "@/components/ui/use-toast";
-import { GetServerConfig, SaveServerConfig, GetClientConfig, SaveClientConfig, OpenConfigDir, GetConfigDir } from "../../wailsjs/go/main/App";
-import { main, pcmresample } from "../../wailsjs/go/models";
-import { BrowserOpenURL } from "../../wailsjs/runtime/runtime";
+import { GetServerConfig, SaveServerConfig, GetClientConfig, SaveClientConfig, OpenConfigDir, GetConfigDir, GetAppVersion } from "../../bindings/AuOvIP/app";
+import { ClientConfig, ServerConfig } from "../../bindings/AuOvIP/models";
+import { Browser } from "@wailsio/runtime";
 import { ResampleSettings } from "@/components/ResampleSettings";
 
 export default function SettingsPage() {
     const { toast } = useToast();
-    const [serverCfg, setServerCfg] = useState(new main.ServerConfig({ port: "8080" }));
-    const [clientCfg, setClientCfg] = useState(new main.ClientConfig({
-        defaultResampleOpts: new pcmresample.Options({
-            Method: 2, Quality: 20, MaxQuality: 100, MaxThreads: 0, IncludeLFEInDownmix: true
-        })
-    }));
+    const [serverCfg, setServerCfg] = useState<ServerConfig>({ port: "8080" });
+    const [clientCfg, setClientCfg] = useState<ClientConfig>({
+        defaultResampleOpts: {
+            Method: 2, Quality: 20, MaxQuality: 100, MaxThreads: 0, IncludeLFEInDownmix: true, CustomMixMatrix: null
+        }
+    });
     const [configPath, setConfigPath] = useState("");
+    const [appVersion, setAppVersion] = useState("");
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         GetConfigDir().then(setConfigPath);
-        GetServerConfig().then(c => setServerCfg(new main.ServerConfig(c)));
-        GetClientConfig().then(c => setClientCfg(new main.ClientConfig(c)));
+        GetServerConfig().then(setServerCfg);
+        GetClientConfig().then(setClientCfg);
+        GetAppVersion().then(setAppVersion);
     }, []);
 
     const handleSaveServer = async () => {
@@ -33,7 +35,7 @@ export default function SettingsPage() {
         try {
             let cfg = serverCfg;
             if (cfg.port === "") {
-                cfg = new main.ServerConfig({ ...cfg, port: "8080" });
+                cfg = { ...cfg, port: "8080" };
                 setServerCfg(cfg);
             }
             await SaveServerConfig(cfg);
@@ -92,9 +94,14 @@ export default function SettingsPage() {
                             <CardDescription>Check the GitHub for updates</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <Button className="" onClick={() => { BrowserOpenURL("https://github.com/ElTheLedge/Audio-Over-IP") }}>
-                                <GithubIcon className="mr-1" />@ElTheLedge/Audio-Over-IP
-                            </Button>
+                            <div className="flex items-center gap-4">
+                                <Button className="" onClick={() => { Browser.OpenURL("https://github.com/ElTheLedge/Audio-Over-IP") }}>
+                                    <GithubIcon className="mr-1" />@ElTheLedge/Audio-Over-IP
+                                </Button>
+                                {appVersion && (
+                                    <span className="text-sm text-muted-foreground font-mono">v{appVersion}</span>
+                                )}
+                            </div>
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -114,7 +121,7 @@ export default function SettingsPage() {
                                     type="number"
                                     value={serverCfg.port}
                                     onChange={(e) => {
-                                        setServerCfg(new main.ServerConfig({ ...serverCfg, port: e.target.value }))
+                                        setServerCfg({ ...serverCfg, port: e.target.value })
                                     }}
                                     placeholder="8080"
                                 />
@@ -139,7 +146,7 @@ export default function SettingsPage() {
                         <CardContent className="space-y-6">
                             <ResampleSettings
                                 opts={clientCfg.defaultResampleOpts}
-                                onChange={(opts) => setClientCfg(new main.ClientConfig({ ...clientCfg, defaultResampleOpts: opts }))}
+                                onChange={(opts) => setClientCfg({ ...clientCfg, defaultResampleOpts: opts })}
                             />
                             <Button onClick={handleSaveClient} disabled={loading}>
                                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

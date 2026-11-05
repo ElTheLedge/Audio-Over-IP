@@ -94,7 +94,6 @@
 
 #topbarDraggablePart {
   --wails-draggable: drag;
-  widows: 1;
 }
 
 Button {

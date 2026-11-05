@@ -60,10 +60,11 @@ Since this application relies on the Windows Core Audio API (WASAPI), it is curr
 
 To build and run the project from source, you need:
 
-- **Go** (version 1.25 or later)
+- **Go** (version 1.26 or later)
 - **Node.js** (version 22.21 or later + npm)
-- **Wails CLI**: Install it with `go install github.com/wailsapp/wails/v2/cmd/wails@latest`
-- **GCC Compiler**: Required for CGO (e.g., MinGW-w64)
+- **Wails CLI**: Install it with `go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0`
+
+No C toolchain is needed: the build is CGO-free (`CGO_ENABLED=0`).
 
 ### Compiling the code
 
@@ -76,23 +77,53 @@ To build and run the project from source, you need:
 2.  **Check necessary wails dependencies:**
     ```bash
     # WebView2, Nodejs and npm need to appear with status "Installed"
-    wails doctor
+    wails3 doctor
     ```
 
 3.  **Run in Development Mode:**
     This will start the application with hot-reloading enabled for both backend and frontend.
     ```bash
     # The Wails CLI handles both Go and npm dependencies automatically
-    wails dev
+    wails3 dev
     ```
 
 4.  **Build for Production:**
     To create a standalone `.exe` file:
     ```bash
     # The Wails CLI handles both Go and npm dependencies automatically
-    wails build
+    wails3 build
     ```
-    The output binary will be located in the `build/bin` directory.
+    The output binary will be located in the `build/bin` directory. It is a portable
+    executable: run it directly or copy it anywhere, no installer is required.
+
+### Project tasks
+
+`wails3 dev` and `wails3 build` run the project's Taskfiles for you. go-task is bundled
+with the Wails CLI, so additional targets are available as `wails3 task <name>` without
+installing a separate `task` binary:
+
+```bash
+# List every available target
+wails3 task --list-all
+
+# Regenerate the frontend bindings in frontend/bindings/ after changing bound Go methods
+wails3 task common:generate:bindings
+
+# Regenerate the app icon, or the build assets described by build/config.yml
+wails3 task common:generate:icons
+wails3 task common:update:build-assets
+
+# Optional MSIX package (rendered by the CLI from the metadata in build/config.yml)
+wails3 task package
+```
+
+Development mode (watched files, log level, the Vite dev server and its port, which
+defaults to `9245` and can be overridden with `-port` or `WAILS_VITE_PORT`) is configured
+in `build/config.yml`.
+
+Release archives are created with `.\create_prod_bundle_with_licenses.ps1`: it collects the
+third-party licenses and zips `build/bin/AudioOverIP.exe` into
+`build/bin/AudioOverIP_release-Windows_x64.zip`.
 
 
 ## Tech Stack
@@ -100,7 +131,7 @@ To build and run the project from source, you need:
 - **Backend:** Go (Golang)
 - **Frontend:** React, TypeScript, Vite
 - **UI Framework:** Tailwind CSS, shadcn/ui, radix-ui
-- **App Framework:** [Wails v2](https://wails.io/)
+- **App Framework:** [Wails v3](https://wails.io/)
 - **Audio API:** Windows Core Audio API
 - **Networking:** Gorilla WebSocket
 

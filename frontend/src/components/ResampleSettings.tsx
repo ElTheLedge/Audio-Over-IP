@@ -3,12 +3,12 @@ import * as Tooltip from "@radix-ui/react-tooltip";
 import { Check, ChevronDown } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import { pcmresample } from "../../wailsjs/go/models";
+import { Options } from "../../bindings/AuOvIP/pcmresample/models";
 import { LabelWithTooltip } from "./LabelWithTooltip";
 
 interface ResampleSettingsProps {
-    opts: pcmresample.Options;
-    onChange: (opts: pcmresample.Options) => void;
+    opts: Options;
+    onChange: (opts: Options) => void;
     disabled?: boolean;
 }
 
@@ -18,9 +18,9 @@ export function ResampleSettings({ opts, onChange, disabled = false }: ResampleS
     const lfe = opts.IncludeLFEInDownmix;
     const maxQual = 100;
 
-    const setMethod = (m: number) => onChange(new pcmresample.Options({ ...opts, Method: m }));
-    const setQuality = (q: number) => onChange(new pcmresample.Options({ ...opts, Quality: q }));
-    const setLfe = (l: boolean) => onChange(new pcmresample.Options({ ...opts, IncludeLFEInDownmix: l }));
+    const setMethod = (m: number) => onChange({ ...opts, Method: m });
+    const setQuality = (q: number) => onChange({ ...opts, Quality: q });
+    const setLfe = (l: boolean) => onChange({ ...opts, IncludeLFEInDownmix: l });
 
     return (
         <Tooltip.Provider delayDuration={300}>

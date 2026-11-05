@@ -3,16 +3,53 @@ package main
 import (
 	"context"
 	"os/exec"
+	"sync"
 
 	"AuOvIP/pcmresample"
 	"AuOvIP/wcatools"
 
-	wRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
+
+// appVersion is shown in Settings > General. Keep in sync with the version in
+// build/config.yml (it also renders into build/windows/info.json and the manifest).
+const appVersion = "0.9.0.1"
 
 // App struct
 type App struct {
+	wails  *application.App
+	window application.Window
+
+	// ctx is the application context handed to ServiceStartup. It stays valid
+	// while the application is running and is cancelled right before shutdown.
 	ctx context.Context
+
+	// updatersOnce makes sure the frontend updater goroutines are started
+	// only once, no matter how many times the frontend signals it is ready.
+	updatersOnce sync.Once
+}
+
+// setWails stores the application instance (call after application.New)
+func (a *App) setWails(wailsApp *application.App) {
+	a.wails = wailsApp
+}
+
+// setMainWindow stores the main window (call after creating the window)
+func (a *App) setMainWindow(window application.Window) {
+	a.window = window
+}
+
+// emitEvent sends an event to the frontend.
+// It is a no-op if the application is not initialized yet.
+func (a *App) emitEvent(name string, data ...any) {
+	if a != nil && a.wails != nil {
+		a.wails.Event.Emit(name, data...)
+	}
+}
+
+// GetAppVersion returns the application version for the settings UI.
+func (a *App) GetAppVersion() string {
+	return appVersion
 }
 
 func (a *App) GetServerConfig() ServerConfig {
@@ -23,7 +60,7 @@ func (a *App) SaveServerConfig(cfg ServerConfig) error {
 	configMu.Lock()
 	serverConfig = cfg
 	configMu.Unlock()
-	wRuntime.EventsEmit(a.ctx, "updateServerPagePortDisplay", cfg.Port)
+	a.emitEvent("updateServerPagePortDisplay", cfg.Port)
 	return SaveServerConfig()
 }
 
@@ -56,9 +93,12 @@ func NewApp() *App {
 	return &App{}
 }
 
-// startup is called at application startup
-func (a *App) startup(ctx context.Context) {
+// ServiceStartup is called at application startup (Wails v3 service initialisation hook).
+// The context it receives is valid for as long as the application is running and
+// is cancelled right before shutdown.
+func (a *App) ServiceStartup(ctx context.Context, _ application.ServiceOptions) error {
 	a.ctx = ctx
+
 	_ = LoadConfig()
 
 	InitDeviceMonitor()
@@ -68,40 +108,36 @@ func (a *App) startup(ctx context.Context) {
 			_ = ReconnectServer(id)
 		}(s.ID)
 	}
+
+	return nil
 }
 
-// domReady is called after front-end resources have been loaded
-func (a App) domReady(ctx context.Context) {
-	//Start connection status frontend updater
-	go connStatusUpdater()
-	go serverStatsUpdater()
-}
-
-// beforeClose is called when the application is about to quit,
-// either by clicking the window close button or calling runtime.Quit.
-// Returning true will cause the application to continue, false will continue shutdown as normal.
-func (a *App) beforeClose(ctx context.Context) (prevent bool) {
-	return false
-}
-
-// shutdown is called at application termination
-func (a *App) shutdown(ctx context.Context) {
-	// Perform teardown here
+// domReady is called after front-end resources have been loaded.
+// WindowRuntimeReady fires on every page load or reload (a Vite full reload or a
+// manual reload in dev mode fires it again), so the goroutines are started behind
+// a sync.Once. Without the guard every reload would add another pair of
+// goroutines consuming the same channels, making the event flow non-deterministic.
+func (a *App) domReady() {
+	a.updatersOnce.Do(func() {
+		//Start connection status frontend updater
+		go connStatusUpdater(a.ctx)
+		go serverStatsUpdater(a.ctx)
+	})
 }
 
 func (a *App) QuitApp() {
-	wRuntime.Quit(a.ctx)
+	a.wails.Quit()
 }
 
 func (a *App) MinimiseApp() {
-	wRuntime.WindowMinimise(a.ctx)
+	a.window.Minimise()
 }
 
 // Server management exposed to frontend
 func (a *App) AddServer(ipAddress string, port string) error {
 	_, err := AddServer(ipAddress, port)
 	if err == nil {
-		wRuntime.EventsEmit(a.ctx, "serversUpdated", ListServers())
+		a.emitEvent("serversUpdated", ListServers())
 	}
 	return err
 }
@@ -112,7 +148,7 @@ func (a *App) CheckServerConnection(id string) error {
 
 func (a *App) RemoveServer(id string) {
 	RemoveServer(id)
-	wRuntime.EventsEmit(a.ctx, "serversUpdated", ListServers())
+	a.emitEvent("serversUpdated", ListServers())
 }
 
 func (a *App) ReorderServers(newOrder []string) {
@@ -128,7 +164,7 @@ func (a *App) UpdateServerSettings(id string, opts pcmresample.Options) {
 	if err != nil {
 		clientLogger.Errorf("%s", err.Error())
 	}
-	wRuntime.EventsEmit(a.ctx, "serversUpdated", ListServers())
+	a.emitEvent("serversUpdated", ListServers())
 }
 
 func (a *App) ConnectToAudioServer(id string) {
@@ -154,14 +190,14 @@ func (a *App) GetServerEnabled() bool {
 
 func (a *App) EnableServer() {
 	serverIsOn = true
-	wRuntime.EventsEmit(a.ctx, "updateServerStatus", serverIsOn)
+	a.emitEvent("updateServerStatus", serverIsOn)
 	startServer(serverConfig.Port)
 }
 
 func (a *App) DisableServer() {
 	stopServer()
 	serverIsOn = false
-	wRuntime.EventsEmit(a.ctx, "updateServerStatus", serverIsOn)
+	a.emitEvent("updateServerStatus", serverIsOn)
 }
 
 func (a *App) ListAudioDevices() ([]wcatools.AudioConfig, error) {
@@ -171,7 +207,7 @@ func (a *App) ListAudioDevices() ([]wcatools.AudioConfig, error) {
 func (a *App) AddPlaybackDevice(serverID, deviceID string) error {
 	err := AddPlaybackDevice(serverID, deviceID)
 	if err == nil {
-		wRuntime.EventsEmit(a.ctx, "serversUpdated", ListServers())
+		a.emitEvent("serversUpdated", ListServers())
 	}
 	return err
 }
@@ -179,7 +215,7 @@ func (a *App) AddPlaybackDevice(serverID, deviceID string) error {
 func (a *App) RemovePlaybackDevice(serverID, deviceID string) error {
 	err := RemovePlaybackDevice(serverID, deviceID)
 	if err == nil {
-		wRuntime.EventsEmit(a.ctx, "serversUpdated", ListServers())
+		a.emitEvent("serversUpdated", ListServers())
 	}
 	return err
 }
@@ -187,7 +223,7 @@ func (a *App) RemovePlaybackDevice(serverID, deviceID string) error {
 func (a *App) UpdatePlaybackDevice(serverID, deviceID string, enabled bool, volume float32) error {
 	err := UpdatePlaybackDevice(serverID, deviceID, enabled, volume)
 	if err == nil {
-		wRuntime.EventsEmit(a.ctx, "serversUpdated", ListServers())
+		a.emitEvent("serversUpdated", ListServers())
 	}
 	return err
 }
@@ -195,7 +231,7 @@ func (a *App) UpdatePlaybackDevice(serverID, deviceID string, enabled bool, volu
 func (a *App) SetServerRemoteDevice(serverID, deviceID string) error {
 	err := SetServerRemoteDevice(serverID, deviceID)
 	if err == nil {
-		wRuntime.EventsEmit(a.ctx, "serversUpdated", ListServers())
+		a.emitEvent("serversUpdated", ListServers())
 	}
 	return err
 }

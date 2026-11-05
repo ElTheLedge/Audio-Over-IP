@@ -14,7 +14,6 @@ import (
 	"AuOvIP/wcatools"
 
 	"github.com/gorilla/websocket"
-	wRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 var aconf wcatools.AudioConfig
@@ -432,7 +431,7 @@ func maintainInfoConnection(ctx context.Context, s *Server, conn *websocket.Conn
 			s.Online = false
 		}
 		serversMu.Unlock()
-		wRuntime.EventsEmit(app.ctx, "serversUpdated", ListServers())
+		app.emitEvent("serversUpdated", ListServers())
 	}()
 
 	ticker := time.NewTicker(2 * time.Second)
@@ -487,7 +486,7 @@ func maintainInfoConnection(ctx context.Context, s *Server, conn *websocket.Conn
 				}
 			}
 			serversMu.Unlock()
-			wRuntime.EventsEmit(app.ctx, "serversUpdated", ListServers())
+			app.emitEvent("serversUpdated", ListServers())
 		}
 	}()
 
@@ -634,7 +633,7 @@ func ReconnectServer(id string) error {
 
 	go maintainInfoConnection(infoCtx, s, conn)
 	go func() { _ = SaveServerListConfig() }()
-	wRuntime.EventsEmit(app.ctx, "serversUpdated", ListServers())
+	app.emitEvent("serversUpdated", ListServers())
 
 	return nil
 }
@@ -669,12 +668,10 @@ func DisconnectServer(id string) error {
 
 func InitDeviceMonitor() {
 	wcatools.StartMonitor(func(event wcatools.DeviceEvent, id string) {
-		if app != nil && app.ctx != nil {
-			wRuntime.EventsEmit(app.ctx, "deviceChanged", map[string]interface{}{
-				"event": event,
-				"id":    id,
-			})
-		}
+		app.emitEvent("deviceChanged", DeviceChangedData{
+			Event: event,
+			ID:    id,
+		})
 	})
 }
 

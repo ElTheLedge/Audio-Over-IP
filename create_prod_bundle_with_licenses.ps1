@@ -83,12 +83,12 @@ foreach ($line in $GoLicenses) {
         continue
     }
 
-    # Regex to match any version number like v2.11.0
-    $pattern = 'https:\/\/github\.com\/wailsapp\/wails\/blob\/v\d+\.\d+\.\d+\/v2\/LICENSE'
+    # Regex to match any version number like v2.11.0 or v3.0.0
+    $pattern = 'https:\/\/github\.com\/wailsapp\/wails\/blob\/v\d+\.\d+\.\d+\/v\d+\/LICENSE'
 
     if ($LicenseUrl -match $pattern) {
-        # Remove the "v2/" part after the version
-        $LicenseUrl = $LicenseUrl -replace '/v2/', '/'
+        # Remove the "v2/" or "v3/" part after the version
+        $LicenseUrl = $LicenseUrl -replace '/v\d+/', '/'
     }
 
 

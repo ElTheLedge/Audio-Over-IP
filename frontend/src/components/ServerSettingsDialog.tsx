@@ -3,19 +3,21 @@ import * as Dialog from "@radix-ui/react-dialog";
 import * as Select from "@radix-ui/react-select";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { Settings, Check, ChevronDown, Loader2, X, Trash2, Volume2, VolumeX, Speaker } from "lucide-react";
-import { main, pcmresample, wcatools } from "../../wailsjs/go/models";
-import { UpdateServerSettings, ListAudioDevices, AddPlaybackDevice, RemovePlaybackDevice, UpdatePlaybackDevice, SetServerRemoteDevice } from "../../wailsjs/go/main/App";
+import { Server, PlaybackDevice } from "../../bindings/AuOvIP/models";
+import { Options } from "../../bindings/AuOvIP/pcmresample/models";
+import { AudioConfig } from "../../bindings/AuOvIP/wcatools/models";
+import { UpdateServerSettings, ListAudioDevices, AddPlaybackDevice, RemovePlaybackDevice, UpdatePlaybackDevice, SetServerRemoteDevice } from "../../bindings/AuOvIP/app";
 import { Button } from "./ui/button";
 import { Switch } from "./ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Slider } from "./ui/slider";
 import { cn } from "../lib/utils";
-import { EventsOff, EventsOn } from "../../wailsjs/runtime/runtime";
+import { Events } from "@wailsio/runtime";
 import { ResampleSettings } from "./ResampleSettings";
 import { LabelWithTooltip } from "./LabelWithTooltip";
 
 interface ServerSettingsDialogProps {
-    server: main.Server;
+    server: Server;
 }
 
 export function ServerSettingsDialog({ server }: ServerSettingsDialogProps) {
@@ -23,21 +25,22 @@ export function ServerSettingsDialog({ server }: ServerSettingsDialogProps) {
     const [isLoading, setIsLoading] = useState(false);
 
     // Resampling State
-    const [resampleOpts, setResampleOpts] = useState<pcmresample.Options>(server.ResampleOpts || new pcmresample.Options({
-        Method: 2, Quality: 20, IncludeLFEInDownmix: true, MaxQuality: 100, MaxThreads: 0
-    }));
+    const [resampleOpts, setResampleOpts] = useState<Options>(server.ResampleOpts || {
+        Method: 2, Quality: 20, IncludeLFEInDownmix: true, MaxQuality: 100, MaxThreads: 0, CustomMixMatrix: null
+    });
 
     // Devices State
-    const [availableDevices, setAvailableDevices] = useState<wcatools.AudioConfig[]>([]);
+    const [availableDevices, setAvailableDevices] = useState<AudioConfig[]>([]);
     const [selectedDeviceToAdd, setSelectedDeviceToAdd] = useState<string>("");
 
     useEffect(() => {
         if (open) {
             fetchDevices();
             // Subscribe to device changes
-            EventsOn("deviceChanged", () => { fetchDevices() });
+            const unsubscribers: Array<() => void> = [];
+            unsubscribers.push(Events.On("deviceChanged", () => { fetchDevices() }));
             return () => {
-                EventsOff("deviceChanged");
+                for (const off of unsubscribers) off();
             };
         }
     }, [open]);
@@ -83,9 +86,9 @@ export function ServerSettingsDialog({ server }: ServerSettingsDialogProps) {
         <Dialog.Root open={open} onOpenChange={(o) => {
             if (isLoading) return;
             if (o) {
-                setResampleOpts(server.ResampleOpts || new pcmresample.Options({
-                    Method: 2, Quality: 20, IncludeLFEInDownmix: true, MaxQuality: 100, MaxThreads: 0
-                }));
+                setResampleOpts(server.ResampleOpts || {
+                    Method: 2, Quality: 20, IncludeLFEInDownmix: true, MaxQuality: 100, MaxThreads: 0, CustomMixMatrix: null
+                });
             }
             setOpen(o);
         }}>
@@ -160,7 +163,7 @@ export function ServerSettingsDialog({ server }: ServerSettingsDialogProps) {
                                             />
                                         );
                                     })}
-                                    {server.PlaybackDevices?.length === 0 && (
+                                    {(!server.PlaybackDevices || server.PlaybackDevices.length === 0) && (
                                         <div className="text-center py-8 text-sm text-muted-foreground border border-dashed rounded-lg">
                                             No playback devices configured.
                                         </div>
@@ -257,7 +260,7 @@ const SelectItem = ({ children, value, ...props }: any) => {
     );
 };
 
-const PlaybackDeviceRow = ({ device, serverID, isAvailable }: { device: main.PlaybackDevice, serverID: string, isAvailable: boolean }) => {
+const PlaybackDeviceRow = ({ device, serverID, isAvailable }: { device: PlaybackDevice, serverID: string, isAvailable: boolean }) => {
     const [localVolume, setLocalVolume] = useState(device.volume);
     const [isLoading, setIsLoading] = useState(false);
     const [isEnabled, setIsEnabled] = useState(device.enabled);

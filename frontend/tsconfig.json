@@ -21,13 +21,12 @@
     "noFallthroughCasesInSwitch": true,
 
     /* Path */
-    "rootDir": "src",
-    /* No "baseUrl": TypeScript 7 removed it. Without it, "paths" entries
-       resolve relative to this file's directory, which is what we want. */
+    /* No "rootDir"/"baseUrl": TypeScript 7 removed baseUrl. Without it,
+       "paths" entries resolve relative to this file's directory, which is what we want. */
     "paths": {
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src"],
+  "include": ["src", "bindings"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

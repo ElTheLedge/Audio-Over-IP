@@ -1,15 +1,11 @@
 import { Switch } from "@/components/ui/switch"
 import { useEffect, useState } from "react"
-import { EventsOff, EventsOn } from "../../wailsjs/runtime/runtime";
-import { DisableServer, EnableServer, GetServerConfig, GetServerEnabled } from "../../wailsjs/go/main/App";
+import { Events } from "@wailsio/runtime";
+import { DisableServer, EnableServer, GetServerConfig, GetServerEnabled } from "../../bindings/AuOvIP/app";
+import { ServerStats } from "../../bindings/AuOvIP/models";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Activity, Users, Radio, Power } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-interface ServerStats {
-    connectedClients: number;
-    bandwidth: number;
-}
 
 function ServerPage() {
     const [isServerOn, setIsServerOn] = useState(false);
@@ -23,17 +19,18 @@ function ServerPage() {
         GetServerEnabled().then((isOn) => {
             setIsServerOn(isOn);
         });
-        EventsOn("updateServerStatus", (isOn) => {
-            setIsServerOn(isOn);
-        });
-        EventsOn("updateServerStats", (stats: ServerStats) => {
-            setServerStats(stats);
-        });
-        EventsOn("updateServerPagePortDisplay", (port: string) => {
-            setListenPort(port);
-        });
+        const unsubscribers: Array<() => void> = [];
+        unsubscribers.push(Events.On("updateServerStatus", (e) => {
+            setIsServerOn(e.data);
+        }));
+        unsubscribers.push(Events.On("updateServerStats", (e) => {
+            setServerStats(e.data);
+        }));
+        unsubscribers.push(Events.On("updateServerPagePortDisplay", (e) => {
+            setListenPort(e.data);
+        }));
         return () => {
-            EventsOff("updateServerStatus", "updateServerStats");
+            for (const off of unsubscribers) off();
         };
     }, []);
 

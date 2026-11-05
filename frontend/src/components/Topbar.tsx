@@ -1,5 +1,5 @@
 import { Minus, X } from "lucide-react";
-import { QuitApp, MinimiseApp } from "../../wailsjs/go/main/App";
+import { QuitApp, MinimiseApp } from "../../bindings/AuOvIP/app";
 
 function Topbar() {
     return (
